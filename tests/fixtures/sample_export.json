@@ -1,0 +1,77 @@
+{
+  "userId": "8:me",
+  "exportDate": "2025-03-19T22:39",
+  "conversations": [
+    {
+      "id": "8:alice",
+      "displayName": "Alice",
+      "properties": {},
+      "threadProperties": null,
+      "MessageList": [
+        {
+          "id": "200",
+          "displayName": "Alice",
+          "originalarrivaltime": "2025-03-19T21:18:56.132Z",
+          "messagetype": "RichText",
+          "version": 1,
+          "content": "second message",
+          "conversationid": "8:alice",
+          "from": "8:alice",
+          "properties": null,
+          "amsreferences": []
+        },
+        {
+          "id": "100",
+          "displayName": null,
+          "originalarrivaltime": "2025-03-18T10:00:00.000Z",
+          "messagetype": "RichText",
+          "version": 1,
+          "content": "first message",
+          "conversationid": "8:alice",
+          "from": "8:me",
+          "properties": null,
+          "amsreferences": []
+        }
+      ]
+    },
+    {
+      "id": "19:grouproom@thread.skype",
+      "displayName": "Trading Group",
+      "properties": {},
+      "threadProperties": { "membercount": 8 },
+      "MessageList": [
+        {
+          "id": "300",
+          "displayName": "Bob",
+          "originalarrivaltime": "2025-03-19T12:00:00.000Z",
+          "messagetype": "ThreadActivity/AddMember",
+          "version": 1,
+          "content": "<addmember><initiator>8:alice</initiator><target>8:bob</target></addmember>",
+          "conversationid": "19:grouproom@thread.skype",
+          "from": "19:grouproom@thread.skype",
+          "properties": null,
+          "amsreferences": []
+        },
+        {
+          "id": "301",
+          "displayName": "Bob",
+          "originalarrivaltime": "2025-03-19T13:00:00.000Z",
+          "messagetype": "RichText",
+          "version": 1,
+          "content": "hello everyone",
+          "conversationid": "19:grouproom@thread.skype",
+          "from": "8:bob",
+          "properties": null,
+          "amsreferences": []
+        }
+      ]
+    },
+    {
+      "id": "8:empty",
+      "displayName": "Empty Chat",
+      "properties": {},
+      "threadProperties": null,
+      "MessageList": []
+    }
+  ]
+}

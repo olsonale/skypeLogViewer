@@ -798,6 +798,18 @@ Create `tests/fixtures/sample_export.json`:
           "from": "19:grouproom@thread.skype",
           "properties": null,
           "amsreferences": []
+        },
+        {
+          "id": "301",
+          "displayName": "Bob",
+          "originalarrivaltime": "2025-03-19T13:00:00.000Z",
+          "messagetype": "RichText",
+          "version": 1,
+          "content": "hello everyone",
+          "conversationid": "19:grouproom@thread.skype",
+          "from": "8:bob",
+          "properties": null,
+          "amsreferences": []
         }
       ]
     },
@@ -1275,7 +1287,7 @@ def test_matching_indices_empty_query_returns_none():
 
 
 def test_matching_indices_finds_substrings():
-    assert matching_indices(ITEMS, "o") == [0, 1, 3]
+    assert matching_indices(ITEMS, "o") == [0, 1, 2, 3]
 
 
 def test_next_index_forward_wraps():
