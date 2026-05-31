@@ -56,6 +56,7 @@ class MainFrame(wx.Frame):
         self._build_layout()
         self._bind_events()
         self.rebuild_conversation_list()
+        self._rebuild_recent_menu()
         self.CreateStatusBar()
         self.SetStatusText("Ready")
 
@@ -65,9 +66,12 @@ class MainFrame(wx.Frame):
 
         file_menu = wx.Menu()
         file_menu.Append(wx.ID_OPEN, "&Open...\tCtrl+O")
+        self.recent_menu = wx.Menu()
+        file_menu.AppendSubMenu(self.recent_menu, "Open &Recent")
         file_menu.AppendSeparator()
         file_menu.Append(wx.ID_EXIT, "E&xit")
         menubar.Append(file_menu, "&File")
+        self._recent_ids: dict[int, str] = {}
 
         view_menu = wx.Menu()
         self.mi_show_system = view_menu.AppendCheckItem(ID_SHOW_SYSTEM, "Show &system events\tCtrl+E")
@@ -91,6 +95,20 @@ class MainFrame(wx.Frame):
         menubar.Append(help_menu, "&Help")
 
         self.SetMenuBar(menubar)
+
+    def _rebuild_recent_menu(self) -> None:
+        for item in list(self.recent_menu.GetMenuItems()):
+            self.recent_menu.Delete(item)
+        self._recent_ids = {}
+        for path in self.config.recent_files:
+            item = self.recent_menu.Append(wx.ID_ANY, path)
+            self._recent_ids[item.GetId()] = path
+            self.Bind(wx.EVT_MENU, self._on_open_recent, item)
+
+    def _on_open_recent(self, event: wx.CommandEvent) -> None:
+        path = self._recent_ids.get(event.GetId())
+        if path:
+            self._load_path(path)
 
     def _build_layout(self) -> None:
         panel = wx.Panel(self)
@@ -200,7 +218,7 @@ class MainFrame(wx.Frame):
             local = to_local(m.timestamp)
             day = local.date()
             if day != last_day:
-                rows.append(_Row(f"— {date_label(m.timestamp)} —", None))
+                rows.append(_Row(f"— {date_label(local)} —", None))
                 last_day = day
             preview = make_preview(m.clean_text)
             rows.append(_Row(format_row(m.sender_name, local, preview), m))
@@ -232,7 +250,7 @@ class MainFrame(wx.Frame):
         if 0 <= row_index < len(self.rows):
             row = self.rows[row_index]
             self.detail.ChangeValue(row.message.clean_text if row.message else row.text)
-            if self.current_conv:
+            if self.current_conv and row.message is not None:
                 self.config.set_position(self.current_conv.id, row_index)
 
     # ---------- search ----------
@@ -254,6 +272,7 @@ class MainFrame(wx.Frame):
         texts = [r.message.clean_text for _, r in msg_rows]
         local_matches = matching_indices(texts, query)
         if not local_matches:
+            wx.MessageBeep()
             self.SetStatusText(f'No matches for "{query}"')
             return
         row_matches = [msg_rows[i][0] for i in local_matches]
@@ -295,8 +314,8 @@ class MainFrame(wx.Frame):
 
     def on_copy_message(self, event: wx.CommandEvent) -> None:
         focused = wx.Window.FindFocus()
-        if isinstance(focused, wx.TextCtrl):
-            focused.Copy()  # normal text-field copy (search box / detail field)
+        if focused is self.search_ctrl:
+            focused.Copy()  # normal text copy while editing the search box
             return
         row_index = self.msg_list.GetFirstSelected()
         if 0 <= row_index < len(self.rows) and self.rows[row_index].message:
@@ -334,6 +353,7 @@ class MainFrame(wx.Frame):
         self.current_conv = None
         self.detail.ChangeValue("")
         self.rebuild_conversation_list()
+        self._rebuild_recent_menu()
 
     # ---------- key handling ----------
     def on_char_hook(self, event: wx.KeyEvent) -> None:
@@ -345,6 +365,9 @@ class MainFrame(wx.Frame):
             self.search_ctrl.ChangeValue("")
             self.rebuild_rows("")
             self._select_row(0)
+            return
+        if key in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and wx.Window.FindFocus() is self.conv_list:
+            self.msg_list.SetFocus()
             return
         event.Skip()
 

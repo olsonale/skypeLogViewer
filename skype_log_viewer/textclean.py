@@ -83,7 +83,9 @@ def _clean_media(content: str, msgtype: str) -> str:
 def _clean_call(content: str) -> str:
     dur = re.search(r"<duration>(\d+)</duration>", content)
     if dur:
-        return f"[Call, {int(dur.group(1))} seconds]"
+        seconds = int(dur.group(1))
+        unit = "second" if seconds == 1 else "seconds"
+        return f"[Call, {seconds} {unit}]"
     ctype = _attr(content, "type")
     if ctype == "started":
         return "[Call started]"

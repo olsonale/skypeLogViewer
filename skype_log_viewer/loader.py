@@ -47,7 +47,7 @@ def load_export(path: str | Path) -> ExportData:
         messages.sort(key=lambda x: x.timestamp)
 
         conv_id = conv.get("id", "")
-        is_group = "@thread.skype" in conv_id
+        is_group = "@thread." in conv_id
         thread_props = conv.get("threadProperties") or {}
         member_count = int(thread_props.get("membercount") or (0 if is_group else 2))
 

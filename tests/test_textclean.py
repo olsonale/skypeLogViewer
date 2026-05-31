@@ -69,6 +69,11 @@ def test_call_with_duration():
     assert clean_content(raw, "Event/Call") == "[Call, 4 seconds]"
 
 
+def test_call_one_second_is_singular():
+    raw = '<partlist type="ended"><part><duration>1</duration></part></partlist>'
+    assert clean_content(raw, "Event/Call") == "[Call, 1 second]"
+
+
 def test_call_ended_no_duration():
     raw = '<partlist type="ended"></partlist>'
     assert clean_content(raw, "Event/Call") == "[Call ended]"
