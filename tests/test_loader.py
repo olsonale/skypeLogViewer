@@ -66,3 +66,26 @@ def test_system_event_cleaned_and_flagged():
     event = group.messages[0]
     assert event.is_system is True
     assert event.clean_text == "[Alice added Bob]"
+
+
+def test_cache_round_trip(tmp_path):
+    from skype_log_viewer.loader import load_with_cache
+
+    cache_dir = tmp_path / "cache"
+    first = load_with_cache(FIXTURE, cache_dir)
+    # a cache file should now exist
+    assert any(cache_dir.glob("*.pickle"))
+    second = load_with_cache(FIXTURE, cache_dir)
+    assert second.user_id == first.user_id
+    assert len(second.conversations) == len(first.conversations)
+
+
+def test_corrupt_cache_falls_back_to_parse(tmp_path):
+    from skype_log_viewer.loader import load_with_cache, _cache_path
+
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    bad = _cache_path(FIXTURE, cache_dir)
+    bad.write_bytes(b"not a pickle")
+    data = load_with_cache(FIXTURE, cache_dir)
+    assert data.user_id == "8:me"

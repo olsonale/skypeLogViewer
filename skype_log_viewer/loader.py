@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import pickle
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -61,3 +63,34 @@ def load_export(path: str | Path) -> ExportData:
 
     conversations.sort(key=lambda c: (c.display_name or "").casefold())
     return ExportData(user_id=user_id, conversations=conversations)
+
+
+CACHE_VERSION = 1
+
+
+def _cache_path(source: str | Path, cache_dir: str | Path) -> Path:
+    source = Path(source)
+    st = source.stat()
+    key = f"{source.resolve()}|{st.st_size}|{int(st.st_mtime)}|v{CACHE_VERSION}"
+    digest = hashlib.sha1(key.encode("utf-8")).hexdigest()
+    return Path(cache_dir) / f"{digest}.pickle"
+
+
+def load_with_cache(path: str | Path, cache_dir: str | Path) -> ExportData:
+    """Load from cache if a fresh pickle exists for this file, else parse and cache."""
+    cache_dir = Path(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_file = _cache_path(path, cache_dir)
+
+    if cache_file.exists():
+        try:
+            return pickle.loads(cache_file.read_bytes())
+        except Exception:
+            pass  # corrupt/incompatible cache -> reparse
+
+    data = load_export(path)
+    try:
+        cache_file.write_bytes(pickle.dumps(data))
+    except Exception:
+        pass  # caching is best-effort; never block on it
+    return data
