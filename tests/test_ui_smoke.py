@@ -38,3 +38,26 @@ def test_build_info_text_handles_empty_conversation():
 def test_shortcuts_text_lists_core_keys():
     for key in ("F6", "Ctrl+F", "Ctrl+L", "Ctrl+I", "Ctrl+E", "Ctrl+C", "F1"):
         assert key in SHORTCUTS_TEXT
+
+
+def test_main_frame_builds_and_loads_conversation(tmp_path):
+    from pathlib import Path
+    from skype_log_viewer.loader import load_export
+    from skype_log_viewer.config import Config
+    from skype_log_viewer.ui.main_frame import MainFrame
+
+    app = wx.App()
+    fixture = Path(__file__).parent / "fixtures" / "sample_export.json"
+    data = load_export(fixture)
+    cfg = Config(tmp_path / "config.json")
+    frame = MainFrame(data, cfg)
+
+    # conversation list excludes the empty conversation by default
+    assert frame.conv_list.GetCount() == 2
+
+    # selecting the first conversation populates the virtual message list
+    frame.select_conversation(0)
+    assert frame.msg_list.GetItemCount() >= 1
+
+    frame.Destroy()
+    app.Destroy()
