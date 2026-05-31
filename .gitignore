@@ -4,4 +4,8 @@ __pycache__/
 .pytest_cache/
 build/
 dist/
+dist-nuitka/
+*.build/
+*.dist/
+*.onefile-build/
 *.spec
