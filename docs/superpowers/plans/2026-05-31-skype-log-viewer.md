@@ -798,6 +798,18 @@ Create `tests/fixtures/sample_export.json`:
           "from": "19:grouproom@thread.skype",
           "properties": null,
           "amsreferences": []
+        },
+        {
+          "id": "301",
+          "displayName": "Bob",
+          "originalarrivaltime": "2025-03-19T13:00:00.000Z",
+          "messagetype": "RichText",
+          "version": 1,
+          "content": "hello everyone",
+          "conversationid": "19:grouproom@thread.skype",
+          "from": "8:bob",
+          "properties": null,
+          "amsreferences": []
         }
       ]
     },
