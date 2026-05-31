@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- **Conversations with only system events are now hidden by default.** The
+  conversation list previously counted join/leave, member-add and topic-change
+  events as messages, so chats that "did not actually contain messages" — such
+  as single-participant groups with no stored events — still cluttered the list.
+  They are now treated as empty and hidden unless *View ▸ Show empty
+  conversations* is enabled. ([#1](https://github.com/olsonale/skypeLogViewer/issues/1))
+
 ## 0.2.0 — 2026-05-31
 
 ### Added
