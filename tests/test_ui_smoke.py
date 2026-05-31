@@ -59,5 +59,8 @@ def test_main_frame_builds_and_loads_conversation(tmp_path):
     frame.select_conversation(0)
     assert frame.msg_list.GetItemCount() >= 1
 
+    # selecting a conversation should populate the detail field with text
+    assert frame.detail.GetValue() != ""
+
     frame.Destroy()
     app.Destroy()

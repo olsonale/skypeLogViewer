@@ -154,6 +154,11 @@ class MainFrame(wx.Frame):
     def rebuild_conversation_list(self) -> None:
         self._visible_convs = self.visible_conversations()
         self.conv_list.Set([c.display_name for c in self._visible_convs])
+        if self.current_conv is not None:
+            for i, conv in enumerate(self._visible_convs):
+                if conv.id == self.current_conv.id:
+                    self.conv_list.SetSelection(i)
+                    break
 
     def on_conversation_selected(self, event: wx.CommandEvent) -> None:
         self.select_conversation(self.conv_list.GetSelection())
@@ -216,6 +221,8 @@ class MainFrame(wx.Frame):
         self.msg_list.Select(row_index)
         self.msg_list.Focus(row_index)
         self.msg_list.EnsureVisible(row_index)
+        # Direct update: re-selecting the same row fires no EVT_LIST_ITEM_SELECTED,
+        # so update here too. _update_detail is idempotent, so the extra call is safe.
         self._update_detail(row_index)
 
     def on_message_selected(self, event: wx.ListEvent) -> None:
@@ -262,7 +269,18 @@ class MainFrame(wx.Frame):
     # ---------- menu handlers ----------
     def on_toggle_system(self, event: wx.CommandEvent) -> None:
         self.config.show_system = self.mi_show_system.IsChecked()
+        old_index = self.msg_list.GetFirstSelected()
+        old_msg_id = (
+            self.rows[old_index].message.id
+            if 0 <= old_index < len(self.rows) and self.rows[old_index].message
+            else None
+        )
         self.rebuild_rows(self.search_ctrl.GetValue() if self.search_mode == "filter" else "")
+        if old_msg_id is not None:
+            for i, row in enumerate(self.rows):
+                if row.message and row.message.id == old_msg_id:
+                    self._select_row(i)
+                    return
         self._select_row(0)
 
     def on_toggle_empty(self, event: wx.CommandEvent) -> None:
@@ -276,6 +294,10 @@ class MainFrame(wx.Frame):
             dlg.Destroy()
 
     def on_copy_message(self, event: wx.CommandEvent) -> None:
+        focused = wx.Window.FindFocus()
+        if isinstance(focused, wx.TextCtrl):
+            focused.Copy()  # normal text-field copy (search box / detail field)
+            return
         row_index = self.msg_list.GetFirstSelected()
         if 0 <= row_index < len(self.rows) and self.rows[row_index].message:
             text = self.rows[row_index].message.clean_text
@@ -331,10 +353,12 @@ class MainFrame(wx.Frame):
         try:
             idx = self._panes.index(focused)
         except ValueError:
-            idx = -1
+            self._panes[0 if forward else -1].SetFocus()
+            return
         step = 1 if forward else -1
         self._panes[(idx + step) % len(self._panes)].SetFocus()
 
+    # Bound to wx.EVT_CLOSE by the app entry point (__main__.py, Task 12).
     def on_close(self, event: wx.CloseEvent) -> None:
         self.config.save()
         event.Skip()
