@@ -95,3 +95,49 @@ def test_rebuild_rows_assigns_dates(tmp_path):
 
     frame.Destroy()
     app.Destroy()
+
+
+def _frame_with_two_days(tmp_path):
+    from pathlib import Path
+    from skype_log_viewer.loader import load_export
+    from skype_log_viewer.config import Config
+    from skype_log_viewer.ui.main_frame import MainFrame
+
+    fixture = Path(__file__).parent / "fixtures" / "sample_export.json"
+    data = load_export(fixture)
+    cfg = Config(tmp_path / "config.json")
+    frame = MainFrame(data, cfg)
+    frame.select_conversation(0)  # Alice: two messages ~35h apart => 2+ day blocks
+    return frame
+
+
+def test_time_jump_day_moves_between_separators(tmp_path):
+    app = wx.App()
+    frame = _frame_with_two_days(tmp_path)
+    seps = [i for i, r in enumerate(frame.rows) if r.message is None]
+    assert len(seps) >= 2
+
+    frame._select_row(seps[0])
+    frame._time_jump("day", 1)
+    assert frame.msg_list.GetFirstSelected() == seps[1]
+
+    # smart previous from the second day's separator -> previous day's separator
+    frame._time_jump("day", -1)
+    assert frame.msg_list.GetFirstSelected() == seps[0]
+
+    frame.Destroy()
+    app.Destroy()
+
+
+def test_time_jump_at_boundary_does_not_move(tmp_path):
+    app = wx.App()
+    frame = _frame_with_two_days(tmp_path)
+    seps = [i for i, r in enumerate(frame.rows) if r.message is None]
+
+    frame._select_row(seps[0])
+    frame._time_jump("day", -1)  # already at the first period -> boundary
+    assert frame.msg_list.GetFirstSelected() == seps[0]
+    assert "earlier day" in frame.GetStatusBar().GetStatusText().lower()
+
+    frame.Destroy()
+    app.Destroy()

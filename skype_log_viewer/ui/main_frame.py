@@ -9,6 +9,7 @@ from ..config import Config
 from ..formatting import date_label, format_row, make_preview, to_local
 from ..model import Conversation, ExportData, Message
 from ..search import filter_indices, matching_indices, next_index
+from ..navigation import time_jump_target
 from .info_dialog import InfoDialog
 from .shortcuts_dialog import ShortcutsDialog
 
@@ -20,6 +21,16 @@ ID_FILTER = wx.NewIdRef()
 ID_INFO = wx.NewIdRef()
 ID_COPY_MSG = wx.NewIdRef()
 ID_SHORTCUTS = wx.NewIdRef()
+
+
+_JUMP_BOUNDARY_MESSAGE = {
+    ("day", 1): "No later day",
+    ("day", -1): "No earlier day",
+    ("month", 1): "No later month",
+    ("month", -1): "No earlier month",
+    ("year", 1): "No later year",
+    ("year", -1): "No earlier year",
+}
 
 
 class _VirtualMessageList(wx.ListCtrl):
@@ -371,6 +382,21 @@ class MainFrame(wx.Frame):
         if key in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and wx.Window.FindFocus() is self.conv_list:
             self.msg_list.SetFocus()
             return
+        if wx.Window.FindFocus() is self.msg_list and self.rows:
+            shift = event.ShiftDown()
+            ctrl = event.ControlDown()
+            if key in (wx.WXK_DOWN, wx.WXK_UP):
+                direction = 1 if key == wx.WXK_DOWN else -1
+                if shift and not ctrl:
+                    self._time_jump("day", direction)
+                    return
+                if ctrl and not shift:
+                    self._time_jump("month", direction)
+                    return
+            elif key in (wx.WXK_PAGEDOWN, wx.WXK_PAGEUP):
+                direction = 1 if key == wx.WXK_PAGEDOWN else -1
+                self._time_jump("year", direction)
+                return
         event.Skip()
 
     def _cycle_pane(self, forward: bool) -> None:
@@ -382,6 +408,20 @@ class MainFrame(wx.Frame):
             return
         step = 1 if forward else -1
         self._panes[(idx + step) % len(self._panes)].SetFocus()
+
+    def _time_jump(self, unit: str, direction: int) -> None:
+        if not self.rows:
+            return
+        meta = [(row.date, row.message is None) for row in self.rows]
+        current = self.msg_list.GetFirstSelected()
+        if current < 0:
+            current = 0
+        target = time_jump_target(meta, current, unit, direction)
+        if target is not None:
+            self._select_row(target)
+        else:
+            wx.Bell()
+            self.SetStatusText(_JUMP_BOUNDARY_MESSAGE[(unit, direction)])
 
     # Bound to wx.EVT_CLOSE by the app entry point (__main__.py, Task 12).
     def on_close(self, event: wx.CloseEvent) -> None:
