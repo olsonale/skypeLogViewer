@@ -42,4 +42,4 @@ def test_make_preview_truncates_with_ellipsis():
 
 def test_format_row():
     dt = datetime(2025, 3, 19, 15, 14)
-    assert format_row("You", dt, "hey there") == "You, Mar 19, 2025, 3:14 PM: hey there"
+    assert format_row("You", dt, "hey there") == "You: hey there, Mar 19, 2025, 3:14 PM"

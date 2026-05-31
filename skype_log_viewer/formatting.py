@@ -36,5 +36,5 @@ def make_preview(text: str, limit: int = PREVIEW_LIMIT) -> str:
 
 
 def format_row(sender: str, dt: datetime, preview: str) -> str:
-    """Build a message-list row label: 'You, Mar 19, 2025, 3:14 PM: hey there'."""
-    return f"{sender}, {format_12h(dt)}: {preview}"
+    """Build a message-list row label: 'You: hey there, Mar 19, 2025, 3:14 PM'."""
+    return f"{sender}: {preview}, {format_12h(dt)}"
