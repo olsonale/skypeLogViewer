@@ -64,3 +64,34 @@ def test_main_frame_builds_and_loads_conversation(tmp_path):
 
     frame.Destroy()
     app.Destroy()
+
+
+def test_rebuild_rows_assigns_dates(tmp_path):
+    from pathlib import Path
+    from skype_log_viewer.formatting import to_local
+    from skype_log_viewer.loader import load_export
+    from skype_log_viewer.config import Config
+    from skype_log_viewer.ui.main_frame import MainFrame
+
+    app = wx.App()
+    fixture = Path(__file__).parent / "fixtures" / "sample_export.json"
+    data = load_export(fixture)
+    cfg = Config(tmp_path / "config.json")
+    frame = MainFrame(data, cfg)
+    frame.select_conversation(0)  # "Alice" (conversations sort alphabetically)
+
+    rows = frame.rows
+    assert rows
+    for row in rows:
+        assert isinstance(row.date, datetime.date)
+    # message rows carry their own local date
+    for row in rows:
+        if row.message is not None:
+            assert row.date == to_local(row.message.timestamp).date()
+    # each separator's date matches the row that follows it
+    for i, row in enumerate(rows):
+        if row.message is None:
+            assert rows[i + 1].date == row.date
+
+    frame.Destroy()
+    app.Destroy()

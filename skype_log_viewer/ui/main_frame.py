@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 from typing import Optional
 
 import wx
@@ -36,11 +37,12 @@ class _VirtualMessageList(wx.ListCtrl):
 class _Row:
     """A row in the message list: either a date separator or a message."""
 
-    __slots__ = ("text", "message")
+    __slots__ = ("text", "message", "date")
 
-    def __init__(self, text: str, message: Optional[Message]) -> None:
+    def __init__(self, text: str, message: Optional[Message], date: datetime.date) -> None:
         self.text = text
         self.message = message
+        self.date = date
 
 
 class MainFrame(wx.Frame):
@@ -218,10 +220,10 @@ class MainFrame(wx.Frame):
             local = to_local(m.timestamp)
             day = local.date()
             if day != last_day:
-                rows.append(_Row(f"— {date_label(local)} —", None))
+                rows.append(_Row(f"— {date_label(local)} —", None, day))
                 last_day = day
             preview = make_preview(m.clean_text)
-            rows.append(_Row(format_row(m.sender_name, local, preview), m))
+            rows.append(_Row(format_row(m.sender_name, local, preview), m, day))
         self.rows = rows
         self.msg_list.SetItemCount(len(rows))
         self.msg_list.Refresh()
