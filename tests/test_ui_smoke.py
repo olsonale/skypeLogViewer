@@ -141,3 +141,9 @@ def test_time_jump_at_boundary_does_not_move(tmp_path):
 
     frame.Destroy()
     app.Destroy()
+
+
+def test_shortcuts_text_lists_time_jump_keys():
+    from skype_log_viewer.ui.shortcuts_dialog import SHORTCUTS_TEXT
+    for key in ("Shift+Up", "Ctrl+Up", "Page Up"):
+        assert key in SHORTCUTS_TEXT

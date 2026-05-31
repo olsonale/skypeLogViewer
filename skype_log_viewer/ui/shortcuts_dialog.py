@@ -8,6 +8,9 @@ F6 / Shift+F6   Move between panes (conversations, search, messages, detail)
 Tab / Shift+Tab Move between controls and menus
 Up / Down       Move within the focused list
 Home / End      Jump to start / end of the list
+Shift+Up / Down Jump to previous / next day (in the message list)
+Ctrl+Up / Down  Jump to previous / next calendar month (in the message list)
+Page Up / Down  Jump to previous / next calendar year (in the message list)
 Enter           From conversations: move focus into the message list
 Ctrl+F          Find within the conversation (Enter = next, Shift+Enter = previous)
 Ctrl+L          Filter the message list to matches (Esc clears)
