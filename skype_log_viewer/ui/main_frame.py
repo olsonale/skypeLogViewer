@@ -285,7 +285,7 @@ class MainFrame(wx.Frame):
         texts = [r.message.clean_text for _, r in msg_rows]
         local_matches = matching_indices(texts, query)
         if not local_matches:
-            wx.MessageBeep()
+            wx.Bell()
             self.SetStatusText(f'No matches for "{query}"')
             return
         row_matches = [msg_rows[i][0] for i in local_matches]
