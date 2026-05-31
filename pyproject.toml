@@ -7,6 +7,7 @@ dependencies = ["wxpython>=4.2.2"]
 
 [dependency-groups]
 dev = [
+    "nuitka>=4.1.2",
     "pyinstaller>=6.20.0",
     "pytest>=8",
 ]
