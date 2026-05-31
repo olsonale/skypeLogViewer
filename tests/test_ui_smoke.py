@@ -147,3 +147,156 @@ def test_shortcuts_text_lists_time_jump_keys():
     from skype_log_viewer.ui.shortcuts_dialog import SHORTCUTS_TEXT
     for key in ("Shift+Up", "Ctrl+Up", "Page Up"):
         assert key in SHORTCUTS_TEXT
+
+
+def _frame_with_multi(tmp_path):
+    """Frame over one conversation spanning two Jan days, March, and Jul 2026.
+
+    Timestamps are at noon UTC mid-month, so each message's local date stays in
+    its intended month/year for any real timezone offset (±14h) — the month and
+    year jumps are deterministic regardless of where the test runs.
+    """
+    from skype_log_viewer.model import ExportData
+    from skype_log_viewer.config import Config
+    from skype_log_viewer.ui.main_frame import MainFrame
+
+    utc = datetime.timezone.utc
+    stamps = [
+        datetime.datetime(2025, 1, 15, 12, 0, tzinfo=utc),
+        datetime.datetime(2025, 1, 20, 12, 0, tzinfo=utc),  # same month as above
+        datetime.datetime(2025, 3, 15, 12, 0, tzinfo=utc),  # gap over February
+        datetime.datetime(2026, 7, 15, 12, 0, tzinfo=utc),  # gap over rest of 2025
+    ]
+    msgs = [Message(str(i), "8:me", "You", dt, "RichText", f"m{i}", False)
+            for i, dt in enumerate(stamps)]
+    data = ExportData("8:me", [Conversation("8:multi", "Multi", False, 2, msgs)])
+    cfg = Config(tmp_path / "config.json")
+    frame = MainFrame(data, cfg)
+    frame.select_conversation(0)
+    return frame
+
+
+def _separators(frame):
+    return [i for i, r in enumerate(frame.rows) if r.message is None]
+
+
+def test_time_jump_month_moves_between_months(tmp_path):
+    app = wx.App()
+    frame = _frame_with_multi(tmp_path)
+    by_month = {}
+    for i in _separators(frame):
+        key = (frame.rows[i].date.year, frame.rows[i].date.month)
+        by_month.setdefault(key, i)  # earliest separator of each month
+    jan, mar = by_month[(2025, 1)], by_month[(2025, 3)]
+
+    frame._select_row(jan)
+    frame._time_jump("month", 1)  # Jan -> Mar (skips empty Feb and the 2nd Jan day)
+    assert frame.msg_list.GetFirstSelected() == mar
+
+    # smart previous from March's start -> earliest separator of previous month
+    frame._time_jump("month", -1)
+    assert frame.msg_list.GetFirstSelected() == jan
+
+    frame.Destroy()
+    app.Destroy()
+
+
+def test_time_jump_year_moves_between_years(tmp_path):
+    app = wx.App()
+    frame = _frame_with_multi(tmp_path)
+    by_year = {}
+    for i in _separators(frame):
+        by_year.setdefault(frame.rows[i].date.year, i)  # earliest separator of each year
+    y2025, y2026 = by_year[2025], by_year[2026]
+
+    frame._select_row(y2025)
+    frame._time_jump("year", 1)  # 2025 -> 2026
+    assert frame.msg_list.GetFirstSelected() == y2026
+
+    # smart previous from 2026's start -> earliest separator of 2025
+    frame._time_jump("year", -1)
+    assert frame.msg_list.GetFirstSelected() == y2025
+
+    frame.Destroy()
+    app.Destroy()
+
+
+def _key_event(keycode, shift=False, ctrl=False):
+    evt = wx.KeyEvent(wx.wxEVT_CHAR_HOOK)
+    evt.SetKeyCode(keycode)
+    evt.SetShiftDown(shift)
+    evt.SetControlDown(ctrl)
+    return evt
+
+
+def _focus_message_list(frame):
+    """Show the frame and focus the message list so on_char_hook's focus guard passes."""
+    frame.Show()
+    frame.msg_list.SetFocus()
+    wx.Yield()
+    assert wx.Window.FindFocus() is frame.msg_list
+
+
+def test_on_char_hook_shift_arrow_jumps_day(tmp_path):
+    app = wx.App()
+    frame = _frame_with_multi(tmp_path)
+    _focus_message_list(frame)
+    seps = _separators(frame)
+
+    frame._select_row(seps[0])
+    frame.on_char_hook(_key_event(wx.WXK_DOWN, shift=True))  # Shift+Down -> next day
+    assert frame.msg_list.GetFirstSelected() == seps[1]
+
+    frame.Destroy()
+    app.Destroy()
+
+
+def test_on_char_hook_ctrl_arrow_jumps_month(tmp_path):
+    app = wx.App()
+    frame = _frame_with_multi(tmp_path)
+    _focus_message_list(frame)
+    by_month = {}
+    for i in _separators(frame):
+        key = (frame.rows[i].date.year, frame.rows[i].date.month)
+        by_month.setdefault(key, i)
+    jan, mar = by_month[(2025, 1)], by_month[(2025, 3)]
+
+    frame._select_row(jan)
+    frame.on_char_hook(_key_event(wx.WXK_DOWN, ctrl=True))  # Ctrl+Down -> next month
+    assert frame.msg_list.GetFirstSelected() == mar
+
+    frame.Destroy()
+    app.Destroy()
+
+
+def test_on_char_hook_page_keys_jump_year(tmp_path):
+    app = wx.App()
+    frame = _frame_with_multi(tmp_path)
+    _focus_message_list(frame)
+    by_year = {}
+    for i in _separators(frame):
+        by_year.setdefault(frame.rows[i].date.year, i)
+    y2025, y2026 = by_year[2025], by_year[2026]
+
+    frame._select_row(y2025)
+    frame.on_char_hook(_key_event(wx.WXK_PAGEDOWN))  # Page Down -> next year
+    assert frame.msg_list.GetFirstSelected() == y2026
+
+    frame.Destroy()
+    app.Destroy()
+
+
+def test_on_char_hook_ctrl_shift_arrow_does_not_jump(tmp_path):
+    # Ctrl+Shift+Arrow is ambiguous (matches neither day nor month) and must be
+    # left alone for the default list behavior, not hijacked as a time jump.
+    app = wx.App()
+    frame = _frame_with_multi(tmp_path)
+    _focus_message_list(frame)
+    seps = _separators(frame)
+
+    frame._select_row(seps[0])
+    frame.on_char_hook(_key_event(wx.WXK_DOWN, shift=True, ctrl=True))
+    assert frame.msg_list.GetFirstSelected() == seps[0]  # unchanged
+
+    frame.Destroy()
+    app.Destroy()
