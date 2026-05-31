@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from typing import Optional
+import datetime
+from typing import Callable, Optional, Sequence, Tuple
+
+Meta = Sequence[Tuple[datetime.date, bool]]
 
 
-def _projector(unit: str):
+def _projector(unit: str) -> Callable[[datetime.date], tuple]:
     """Return a function projecting a date to the comparison granularity.
 
     Tuples compare chronologically, so "first different key" == "first later
@@ -18,7 +21,7 @@ def _projector(unit: str):
     raise ValueError(f"unknown unit: {unit!r}")
 
 
-def time_jump_target(meta, current: int, unit: str, direction: int) -> Optional[int]:
+def time_jump_target(meta: Meta, current: int, unit: str, direction: int) -> Optional[int]:
     """Index of the separator row to jump to, or None at a boundary.
 
     meta: sequence of (date, is_separator) per row, in display order.
