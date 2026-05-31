@@ -8,8 +8,8 @@ import wx
 from ..config import Config
 from ..formatting import date_label, format_row, make_preview, to_local
 from ..model import Conversation, ExportData, Message
-from ..search import filter_indices, matching_indices, next_index
 from ..navigation import time_jump_target
+from ..search import filter_indices, matching_indices, next_index
 from .info_dialog import InfoDialog
 from .shortcuts_dialog import ShortcutsDialog
 
