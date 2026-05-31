@@ -1,0 +1,25 @@
+# Changelog
+
+## 0.2.0 — 2026-05-31
+
+### Added
+- **Jump through a conversation by time.** In the message list you can now move
+  in larger steps and land on a date heading so your screen reader announces the
+  new date:
+  - **Shift+Up / Shift+Down** — previous / next day
+  - **Ctrl+Up / Ctrl+Down** — previous / next calendar month
+  - **Page Up / Page Down** — previous / next calendar year
+
+  Jumping forward skips over empty months and years, and "previous" first moves
+  to the start of the current period before stepping back. At the first or last
+  entry you hear a beep and a status message instead of moving. These shortcuts
+  are also listed in the keyboard help (F1).
+
+### Changed
+- **Message rows now read the sender and what they said before the time.** A row
+  that used to be announced as "You, Mar 19, 2025, 3:14 PM: hey there" is now
+  read as "You: hey there, Mar 19, 2025, 3:14 PM", so you hear who spoke and the
+  message up front, with the timestamp at the end.
+
+### Fixed
+- Fixed a crash that could occur when searching past the last match.

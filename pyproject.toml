@@ -1,6 +1,6 @@
 [project]
 name = "skype-log-viewer"
-version = "0.1.0"
+version = "0.2.0"
 description = "Accessible desktop viewer for exported Skype logs"
 requires-python = ">=3.13"
 dependencies = ["wxpython>=4.2.2"]
