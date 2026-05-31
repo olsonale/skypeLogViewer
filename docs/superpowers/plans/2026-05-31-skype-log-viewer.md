@@ -1287,7 +1287,7 @@ def test_matching_indices_empty_query_returns_none():
 
 
 def test_matching_indices_finds_substrings():
-    assert matching_indices(ITEMS, "o") == [0, 1, 3]
+    assert matching_indices(ITEMS, "o") == [0, 1, 2, 3]
 
 
 def test_next_index_forward_wraps():
