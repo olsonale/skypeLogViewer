@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-PREVIEW_LIMIT = 256
+PREVIEW_LIMIT = 2048
 
 
 def to_local(dt: datetime) -> datetime:

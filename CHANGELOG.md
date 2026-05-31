@@ -20,6 +20,9 @@
   that used to be announced as "You, Mar 19, 2025, 3:14 PM: hey there" is now
   read as "You: hey there, Mar 19, 2025, 3:14 PM", so you hear who spoke and the
   message up front, with the timestamp at the end.
+- **Longer message previews in the list.** Rows now show up to 2048 characters of
+  a message before truncating (previously 256), so you can read more without
+  opening the detail pane.
 
 ### Fixed
 - Fixed a crash that could occur when searching past the last match.
