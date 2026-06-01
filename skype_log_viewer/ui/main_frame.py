@@ -180,7 +180,7 @@ class MainFrame(wx.Frame):
     def visible_conversations(self) -> list[Conversation]:
         if self.config.show_empty:
             return list(self.data.conversations)
-        return [c for c in self.data.conversations if c.message_count > 0]
+        return [c for c in self.data.conversations if c.has_messages]
 
     def rebuild_conversation_list(self) -> None:
         self._visible_convs = self.visible_conversations()

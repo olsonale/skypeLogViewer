@@ -27,6 +27,16 @@ class Conversation:
     def message_count(self) -> int:
         return len(self.messages)
 
+    @property
+    def has_messages(self) -> bool:
+        """True if at least one real (non-system) message was stored.
+
+        A conversation whose only entries are system events (joins, member
+        adds, topic changes) "does not actually contain messages" and is
+        treated as empty for the conversation-list filter.
+        """
+        return any(not m.is_system for m in self.messages)
+
 
 @dataclass
 class ExportData:

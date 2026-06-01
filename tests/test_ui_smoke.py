@@ -40,6 +40,36 @@ def test_shortcuts_text_lists_core_keys():
         assert key in SHORTCUTS_TEXT
 
 
+def test_system_only_conversation_hidden_by_default(tmp_path):
+    from skype_log_viewer.model import ExportData
+    from skype_log_viewer.config import Config
+    from skype_log_viewer.ui.main_frame import MainFrame
+
+    system_only = Conversation(
+        "19:lonely@thread.skype", "Lonely Group", True, 1,
+        [Message("9", "19:lonely@thread.skype", "Bob",
+                 datetime.datetime(2025, 3, 19, 12, 0, tzinfo=datetime.timezone.utc),
+                 "ThreadActivity/AddMember", "", True)],
+    )
+    data = ExportData(user_id="8:me", conversations=[_conv(), system_only])
+
+    app = wx.App()
+    cfg = Config(tmp_path / "config.json")
+    frame = MainFrame(data, cfg)
+    try:
+        # a conversation with only system events does not "actually contain
+        # messages", so it is hidden by default
+        assert frame.conv_list.GetCount() == 1
+
+        # ...but the "Show empty conversations" toggle reveals it
+        frame.config.show_empty = True
+        frame.rebuild_conversation_list()
+        assert frame.conv_list.GetCount() == 2
+    finally:
+        frame.Destroy()
+        app.Destroy()
+
+
 def test_main_frame_builds_and_loads_conversation(tmp_path):
     from pathlib import Path
     from skype_log_viewer.loader import load_export
