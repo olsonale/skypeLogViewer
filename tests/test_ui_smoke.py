@@ -401,3 +401,83 @@ def test_scope_switch_flips_search_accessible_name(tmp_path):
     finally:
         frame.Destroy()
         app.Destroy()
+
+
+def _frame_global(tmp_path):
+    """Frame over two conversations that both contain the word 'hello'."""
+    from skype_log_viewer.model import ExportData
+    from skype_log_viewer.config import Config
+    from skype_log_viewer.ui.main_frame import MainFrame
+
+    utc = datetime.timezone.utc
+
+    def msg(i, sender, text):
+        return Message(str(i), "8:x", sender,
+                       datetime.datetime(2025, 3, 19, 12, 0, tzinfo=utc),
+                       "RichText", text, False)
+
+    conv_a = Conversation("8:a", "Alice", False, 2,
+                          [msg(1, "You", "hello there"), msg(2, "Alice", "banana split")])
+    conv_b = Conversation("8:b", "Bob", False, 2,
+                          [msg(3, "You", "another hello"), msg(4, "Bob", "nothing here")])
+    data = ExportData("8:me", [conv_a, conv_b])
+    cfg = Config(tmp_path / "config.json")
+    return MainFrame(data, cfg)
+
+
+def test_run_global_search_builds_prefixed_results(tmp_path):
+    app = wx.App()
+    frame = _frame_global(tmp_path)
+    try:
+        frame.scope_box.SetSelection(1)
+        frame.on_scope_changed(None)
+        frame.search_ctrl.ChangeValue("hello")
+        frame.run_global_search()
+
+        assert frame.results_mode == "global"
+        assert frame.msg_list.GetItemCount() == 2
+        # one row per match, in conversation order, prefixed by conversation name
+        assert frame.rows[0].text.startswith("Alice — ")
+        assert frame.rows[1].text.startswith("Bob — ")
+        # each result carries its conversation for activation
+        assert frame.rows[0].conv.id == "8:a"
+        assert frame.rows[1].conv.id == "8:b"
+        # the matched messages are the right ones
+        assert frame.rows[0].message.id == "1"
+        assert frame.rows[1].message.id == "3"
+        assert "2 results in 2 conversations" in \
+            frame.GetStatusBar().GetStatusText()
+    finally:
+        frame.Destroy()
+        app.Destroy()
+
+
+def test_run_global_search_empty_query_beeps(tmp_path):
+    app = wx.App()
+    frame = _frame_global(tmp_path)
+    try:
+        frame.scope_box.SetSelection(1)
+        frame.on_scope_changed(None)
+        frame.search_ctrl.ChangeValue("   ")  # whitespace only
+        frame.run_global_search()
+        assert frame.results_mode == "normal"  # results not built
+        assert frame.msg_list.GetItemCount() == 0
+    finally:
+        frame.Destroy()
+        app.Destroy()
+
+
+def test_run_global_search_no_matches(tmp_path):
+    app = wx.App()
+    frame = _frame_global(tmp_path)
+    try:
+        frame.scope_box.SetSelection(1)
+        frame.on_scope_changed(None)
+        frame.search_ctrl.ChangeValue("zzzznope")
+        frame.run_global_search()
+        assert frame.msg_list.GetItemCount() == 0
+        assert 'No matches for "zzzznope"' in \
+            frame.GetStatusBar().GetStatusText()
+    finally:
+        frame.Destroy()
+        app.Destroy()

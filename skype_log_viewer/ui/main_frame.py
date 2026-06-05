@@ -9,7 +9,7 @@ from ..config import Config
 from ..formatting import date_label, format_row, make_preview, to_local
 from ..model import Conversation, ExportData, Message
 from ..navigation import time_jump_target
-from ..search import filter_indices, matching_indices, next_index
+from ..search import filter_indices, grouped_matches, matching_indices, next_index
 from .info_dialog import InfoDialog
 from .shortcuts_dialog import ShortcutsDialog
 
@@ -283,7 +283,8 @@ class MainFrame(wx.Frame):
         if 0 <= row_index < len(self.rows):
             row = self.rows[row_index]
             self.detail.ChangeValue(row.message.clean_text if row.message else row.text)
-            if self.current_conv and row.message is not None:
+            if (self.results_mode == "normal" and self.current_conv
+                    and row.message is not None):
                 self.config.set_position(self.current_conv.id, row_index)
 
     # ---------- search ----------
@@ -337,6 +338,44 @@ class MainFrame(wx.Frame):
             self._select_row(target)
             position = row_matches.index(target) + 1
             self.SetStatusText(f"Match {position} of {len(row_matches)}")
+
+    def run_global_search(self) -> None:
+        query = self.search_ctrl.GetValue().strip()
+        if not query:
+            wx.Bell()
+            self.SetStatusText("Type a search term, then press Enter")
+            return
+
+        convs = self.visible_conversations()
+        groups = [(c.id, self._working_messages(c)) for c in convs]
+        pairs = grouped_matches(groups, query, key=lambda m: m.clean_text)
+
+        if not pairs:
+            self.results_mode = "global"
+            self.rows = []
+            self.msg_list.SetItemCount(0)
+            self.msg_list.Refresh()
+            self.detail.ChangeValue("")
+            self.SetStatusText(f'No matches for "{query}"')
+            return
+
+        rows: list[_Row] = []
+        for gi, ii in pairs:
+            conv = convs[gi]
+            message = groups[gi][1][ii]
+            local = to_local(message.timestamp)
+            preview = make_preview(message.clean_text)
+            text = f"{conv.display_name} — " + format_row(message.sender_name, local, preview)
+            rows.append(_Row(text, message, local.date(), conv=conv))
+
+        self.rows = rows
+        self.results_mode = "global"
+        self.msg_list.SetItemCount(len(rows))
+        self.msg_list.Refresh()
+        self.msg_list.SetFocus()
+        self._select_row(0)
+        conv_count = len({r.conv.id for r in rows})
+        self.SetStatusText(f"{len(rows)} results in {conv_count} conversations")
 
     # ---------- menu handlers ----------
     def on_toggle_system(self, event: wx.CommandEvent) -> None:
