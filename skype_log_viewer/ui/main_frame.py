@@ -176,6 +176,7 @@ class MainFrame(wx.Frame):
     def _bind_events(self) -> None:
         self.Bind(wx.EVT_LISTBOX, self.on_conversation_selected, self.conv_list)
         self.msg_list.Bind(wx.EVT_LIST_ITEM_SELECTED, self.on_message_selected)
+        self.msg_list.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.on_message_activated)
         self.search_ctrl.Bind(wx.EVT_TEXT, self.on_search_text)
         self.search_ctrl.Bind(wx.EVT_TEXT_ENTER, self.on_search_enter)
         self.scope_box.Bind(wx.EVT_RADIOBOX, self.on_scope_changed)
@@ -278,6 +279,36 @@ class MainFrame(wx.Frame):
 
     def on_message_selected(self, event: wx.ListEvent) -> None:
         self._update_detail(event.GetIndex())
+
+    def on_message_activated(self, event: wx.ListEvent) -> None:
+        self._activate_result_row(event.GetIndex())
+
+    def _activate_result_row(self, index: int) -> None:
+        """Jump from a global-result row to that message in its conversation."""
+        if self.results_mode != "global":
+            return
+        if not (0 <= index < len(self.rows)):
+            return
+        row = self.rows[index]
+        if row.conv is None or row.message is None:
+            return
+        target_id = row.message.id
+        conv_index = next(
+            (i for i, c in enumerate(self._visible_convs) if c.id == row.conv.id),
+            None,
+        )
+        if conv_index is None:
+            return
+        # Reset scope to This conversation, then land on the message.
+        self.scope_box.SetSelection(0)
+        self.search_ctrl.SetName("Search this conversation")
+        self.results_mode = "normal"
+        self.select_conversation(conv_index)  # rebuilds the conversation's normal view
+        for i, r in enumerate(self.rows):
+            if r.message and r.message.id == target_id:
+                self.msg_list.SetFocus()
+                self._select_row(i)
+                return
 
     def _update_detail(self, row_index: int) -> None:
         if 0 <= row_index < len(self.rows):

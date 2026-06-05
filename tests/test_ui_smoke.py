@@ -503,3 +503,25 @@ def test_live_typing_ignored_in_global_scope(tmp_path):
     finally:
         frame.Destroy()
         app.Destroy()
+
+
+def test_activate_global_result_jumps_to_message(tmp_path):
+    app = wx.App()
+    frame = _frame_global(tmp_path)
+    try:
+        frame.scope_box.SetSelection(1)
+        frame.on_scope_changed(None)
+        frame.search_ctrl.ChangeValue("hello")
+        frame.run_global_search()
+
+        frame._activate_result_row(1)  # the "Bob" result (message id "3")
+
+        assert frame.results_mode == "normal"
+        assert frame.scope_box.GetSelection() == 0
+        assert frame.search_ctrl.GetName() == "Search this conversation"
+        assert frame.current_conv.id == "8:b"
+        selected = frame.msg_list.GetFirstSelected()
+        assert frame.rows[selected].message.id == "3"
+    finally:
+        frame.Destroy()
+        app.Destroy()
