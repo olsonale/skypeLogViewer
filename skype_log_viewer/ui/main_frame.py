@@ -284,7 +284,12 @@ class MainFrame(wx.Frame):
         self._activate_result_row(event.GetIndex())
 
     def _activate_result_row(self, index: int) -> None:
-        """Jump from a global-result row to that message in its conversation."""
+        """Jump from a global-result row to that message in its conversation.
+
+        The target row is found because global search and the normal rebuild both
+        filter via _working_messages/working_messages, so any matched message is
+        also present in the rebuilt normal view.
+        """
         if self.results_mode != "global":
             return
         if not (0 <= index < len(self.rows)):
@@ -309,6 +314,10 @@ class MainFrame(wx.Frame):
                 self.msg_list.SetFocus()
                 self._select_row(i)
                 return
+        # Defensive: if filtering rules ever diverge and the message isn't in the
+        # rebuilt view, tell the user instead of silently landing on another row.
+        wx.Bell()
+        self.SetStatusText("Message no longer available")
 
     def _update_detail(self, row_index: int) -> None:
         if 0 <= row_index < len(self.rows):
