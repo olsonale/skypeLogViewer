@@ -340,3 +340,32 @@ def test_normal_rows_have_no_conv(tmp_path):
         assert row.conv is None  # conv is only set on global-result rows
     frame.Destroy()
     app.Destroy()
+
+
+def test_working_messages_helper_respects_show_system(tmp_path):
+    from skype_log_viewer.model import ExportData
+    from skype_log_viewer.config import Config
+    from skype_log_viewer.ui.main_frame import MainFrame
+
+    utc = datetime.timezone.utc
+    conv = Conversation("8:a", "Alice", False, 2, [
+        Message("1", "8:a", "Alice",
+                datetime.datetime(2025, 3, 19, 12, 0, tzinfo=utc),
+                "RichText", "real message", False),
+        Message("2", "8:a", "Alice",
+                datetime.datetime(2025, 3, 19, 12, 1, tzinfo=utc),
+                "ThreadActivity/AddMember", "", True),
+    ])
+    data = ExportData("8:me", [conv])
+
+    app = wx.App()
+    cfg = Config(tmp_path / "config.json")
+    frame = MainFrame(data, cfg)
+    try:
+        frame.config.show_system = False
+        assert len(frame._working_messages(conv)) == 1  # system event excluded
+        frame.config.show_system = True
+        assert len(frame._working_messages(conv)) == 2  # system event included
+    finally:
+        frame.Destroy()
+        app.Destroy()

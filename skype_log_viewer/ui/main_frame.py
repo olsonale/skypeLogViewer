@@ -219,12 +219,16 @@ class MainFrame(wx.Frame):
         )
 
     # ---------- message rows ----------
+    def _working_messages(self, conv: Conversation) -> list[Message]:
+        """Messages of `conv` filtered by the Show system events setting."""
+        if self.config.show_system:
+            return list(conv.messages)
+        return [m for m in conv.messages if not m.is_system]
+
     def working_messages(self) -> list[Message]:
         if not self.current_conv:
             return []
-        if self.config.show_system:
-            return list(self.current_conv.messages)
-        return [m for m in self.current_conv.messages if not m.is_system]
+        return self._working_messages(self.current_conv)
 
     def rebuild_rows(self, filter_query: str = "") -> None:
         messages = self.working_messages()
