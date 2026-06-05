@@ -558,8 +558,12 @@ def test_time_jump_inert_in_global_mode(tmp_path):
         frame.search_ctrl.ChangeValue("hello")
         frame.run_global_search()
         before = frame.msg_list.GetFirstSelected()
+        frame.SetStatusText("sentinel")
         frame._time_jump("day", 1)
-        assert frame.msg_list.GetFirstSelected() == before  # unchanged
+        # The guard returns early: selection unchanged AND no boundary beep/message.
+        # (Without the guard, _time_jump would set the status to "No later day".)
+        assert frame.msg_list.GetFirstSelected() == before
+        assert frame.GetStatusBar().GetStatusText() == "sentinel"
     finally:
         frame.Destroy()
         app.Destroy()
