@@ -444,6 +444,9 @@ class MainFrame(wx.Frame):
         self.rebuild_conversation_list()
 
     def on_info(self, event: wx.CommandEvent) -> None:
+        if self.results_mode == "global":
+            wx.Bell()  # no single active conversation in the results view
+            return
         if self.current_conv:
             dlg = InfoDialog(self, self.current_conv)
             dlg.ShowModal()
@@ -498,6 +501,12 @@ class MainFrame(wx.Frame):
         if key == wx.WXK_F6:
             self._cycle_pane(forward=not event.ShiftDown())
             return
+        if key == wx.WXK_ESCAPE and self.results_mode == "global":
+            self.scope_box.SetSelection(0)
+            self.search_ctrl.SetName("Search this conversation")
+            self.search_ctrl.ChangeValue("")
+            self._restore_normal_view()
+            return
         if key == wx.WXK_ESCAPE and self.search_ctrl.GetValue():
             self.search_ctrl.ChangeValue("")
             self.rebuild_rows("")
@@ -534,6 +543,8 @@ class MainFrame(wx.Frame):
         self._panes[(idx + step) % len(self._panes)].SetFocus()
 
     def _time_jump(self, unit: str, direction: int) -> None:
+        if self.results_mode == "global":
+            return  # global results have no date separators to target
         if not self.rows:
             return
         meta = [(row.date, row.message is None) for row in self.rows]

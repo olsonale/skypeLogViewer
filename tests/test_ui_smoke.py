@@ -525,3 +525,41 @@ def test_activate_global_result_jumps_to_message(tmp_path):
     finally:
         frame.Destroy()
         app.Destroy()
+
+
+def test_escape_in_global_mode_restores_normal_view(tmp_path):
+    app = wx.App()
+    frame = _frame_global(tmp_path)
+    try:
+        frame.select_conversation(0)            # Alice, normal view
+        frame.scope_box.SetSelection(1)
+        frame.on_scope_changed(None)
+        frame.search_ctrl.ChangeValue("hello")
+        frame.run_global_search()
+        assert frame.results_mode == "global"
+
+        frame.on_char_hook(_key_event(wx.WXK_ESCAPE))
+
+        assert frame.results_mode == "normal"
+        assert frame.scope_box.GetSelection() == 0
+        assert frame.search_ctrl.GetName() == "Search this conversation"
+        assert frame.current_conv.id == "8:a"     # back in Alice's conversation
+    finally:
+        frame.Destroy()
+        app.Destroy()
+
+
+def test_time_jump_inert_in_global_mode(tmp_path):
+    app = wx.App()
+    frame = _frame_global(tmp_path)
+    try:
+        frame.scope_box.SetSelection(1)
+        frame.on_scope_changed(None)
+        frame.search_ctrl.ChangeValue("hello")
+        frame.run_global_search()
+        before = frame.msg_list.GetFirstSelected()
+        frame._time_jump("day", 1)
+        assert frame.msg_list.GetFirstSelected() == before  # unchanged
+    finally:
+        frame.Destroy()
+        app.Destroy()
