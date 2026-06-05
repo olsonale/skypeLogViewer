@@ -27,9 +27,12 @@ parsed once and cached, so later launches of the same file are near-instant.
 
 Press **F1** in the app for the full list. Highlights:
 
-- **F6 / Shift+F6** — move between the four panes
+- **F6 / Shift+F6** — move between the five panes
 - **Ctrl+F** — find within the conversation (Enter = next, Shift+Enter = previous)
 - **Ctrl+L** — filter the message list to matches (Esc clears)
+- **Search scope** — switch between *This conversation* and *All conversations*
+  (the selector below the search box). With *All conversations*, press Enter to
+  search every conversation at once; Enter on a result jumps to that message.
 - **Ctrl+C** — copy the selected message's full text
 - **Ctrl+I** — conversation info
 - **Ctrl+E** — show/hide system events

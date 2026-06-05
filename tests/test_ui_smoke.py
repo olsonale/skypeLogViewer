@@ -179,6 +179,12 @@ def test_shortcuts_text_lists_time_jump_keys():
         assert key in SHORTCUTS_TEXT
 
 
+def test_shortcuts_text_mentions_global_search():
+    from skype_log_viewer.ui.shortcuts_dialog import SHORTCUTS_TEXT
+    assert "Search scope" in SHORTCUTS_TEXT
+    assert "All conversations" in SHORTCUTS_TEXT
+
+
 def _frame_with_multi(tmp_path):
     """Frame over one conversation spanning two Jan days, March, and Jul 2026.
 
