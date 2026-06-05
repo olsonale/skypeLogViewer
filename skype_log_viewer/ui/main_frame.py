@@ -71,6 +71,7 @@ class MainFrame(wx.Frame):
         self.current_conv: Optional[Conversation] = None
         self.rows: list[_Row] = []
         self.search_mode = "filter"  # or "find"
+        self.results_mode = "normal"  # or "global" (showing global search results)
 
         self._build_menu()
         self._build_layout()
@@ -149,6 +150,13 @@ class MainFrame(wx.Frame):
         self.search_ctrl.SetName("Search this conversation")
         right.Add(self.search_ctrl, 0, wx.EXPAND | wx.ALL, 4)
 
+        self.scope_box = wx.RadioBox(
+            panel, label="Search scope",
+            choices=["This conversation", "All conversations"],
+            style=wx.RA_SPECIFY_ROWS,
+        )
+        right.Add(self.scope_box, 0, wx.EXPAND | wx.ALL, 4)
+
         right.Add(wx.StaticText(panel, label="Messages"), 0, wx.ALL, 4)
         self.msg_list = _VirtualMessageList(panel, self)
         self.msg_list.InsertColumn(0, "Message")
@@ -163,13 +171,14 @@ class MainFrame(wx.Frame):
         root.Add(right, 2, wx.EXPAND)
         panel.SetSizer(root)
         self.panel = panel
-        self._panes = [self.conv_list, self.search_ctrl, self.msg_list, self.detail]
+        self._panes = [self.conv_list, self.search_ctrl, self.scope_box, self.msg_list, self.detail]
 
     def _bind_events(self) -> None:
         self.Bind(wx.EVT_LISTBOX, self.on_conversation_selected, self.conv_list)
         self.msg_list.Bind(wx.EVT_LIST_ITEM_SELECTED, self.on_message_selected)
         self.search_ctrl.Bind(wx.EVT_TEXT, self.on_search_text)
         self.search_ctrl.Bind(wx.EVT_TEXT_ENTER, self.on_search_enter)
+        self.scope_box.Bind(wx.EVT_RADIOBOX, self.on_scope_changed)
 
         self.Bind(wx.EVT_MENU, self.on_open, id=wx.ID_OPEN)
         self.Bind(wx.EVT_MENU, lambda e: self.Close(), id=wx.ID_EXIT)
@@ -278,6 +287,32 @@ class MainFrame(wx.Frame):
                 self.config.set_position(self.current_conv.id, row_index)
 
     # ---------- search ----------
+    def _scope_is_global(self) -> bool:
+        return self.scope_box.GetSelection() == 1
+
+    def on_scope_changed(self, event: wx.CommandEvent) -> None:
+        if self._scope_is_global():
+            # Don't search yet — global search runs on Enter, not per keystroke.
+            self.search_ctrl.SetName("Search all conversations")
+            self.search_ctrl.SetFocus()
+            self.search_ctrl.SelectAll()
+        else:
+            self.search_ctrl.SetName("Search this conversation")
+            if self.results_mode == "global":
+                self._restore_normal_view()
+
+    def _restore_normal_view(self) -> None:
+        """Leave the global results list and show the current conversation."""
+        self.results_mode = "normal"
+        if self.current_conv is not None:
+            self.rebuild_rows()
+            self._select_row(0)
+        else:
+            self.rows = []
+            self.msg_list.SetItemCount(0)
+            self.msg_list.Refresh()
+            self.detail.ChangeValue("")
+
     def focus_search(self, mode: str) -> None:
         self.search_mode = mode
         self.search_ctrl.SetFocus()

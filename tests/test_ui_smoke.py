@@ -369,3 +369,35 @@ def test_working_messages_helper_respects_show_system(tmp_path):
     finally:
         frame.Destroy()
         app.Destroy()
+
+
+def test_scope_radiobox_exists_with_two_options(tmp_path):
+    app = wx.App()
+    frame = _frame_with_multi(tmp_path)
+    try:
+        assert frame.scope_box.GetCount() == 2
+        assert frame.scope_box.GetString(0) == "This conversation"
+        assert frame.scope_box.GetString(1) == "All conversations"
+        # scope box sits in the F6 pane cycle between search and messages
+        assert frame._panes.index(frame.scope_box) == \
+            frame._panes.index(frame.search_ctrl) + 1
+        assert frame._panes.index(frame.scope_box) == \
+            frame._panes.index(frame.msg_list) - 1
+    finally:
+        frame.Destroy()
+        app.Destroy()
+
+
+def test_scope_switch_flips_search_accessible_name(tmp_path):
+    app = wx.App()
+    frame = _frame_with_multi(tmp_path)
+    try:
+        frame.scope_box.SetSelection(1)
+        frame.on_scope_changed(None)
+        assert frame.search_ctrl.GetName() == "Search all conversations"
+        frame.scope_box.SetSelection(0)
+        frame.on_scope_changed(None)
+        assert frame.search_ctrl.GetName() == "Search this conversation"
+    finally:
+        frame.Destroy()
+        app.Destroy()
