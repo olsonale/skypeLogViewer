@@ -48,12 +48,19 @@ class _VirtualMessageList(wx.ListCtrl):
 class _Row:
     """A row in the message list: either a date separator or a message."""
 
-    __slots__ = ("text", "message", "date")
+    __slots__ = ("text", "message", "date", "conv")
 
-    def __init__(self, text: str, message: Optional[Message], date: datetime.date) -> None:
+    def __init__(
+        self,
+        text: str,
+        message: Optional[Message],
+        date: datetime.date,
+        conv: Optional[Conversation] = None,
+    ) -> None:
         self.text = text
         self.message = message
         self.date = date
+        self.conv = conv  # set only on global-result rows; None otherwise
 
 
 class MainFrame(wx.Frame):

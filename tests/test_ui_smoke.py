@@ -330,3 +330,13 @@ def test_on_char_hook_ctrl_shift_arrow_does_not_jump(tmp_path):
 
     frame.Destroy()
     app.Destroy()
+
+
+def test_normal_rows_have_no_conv(tmp_path):
+    app = wx.App()
+    frame = _frame_with_multi(tmp_path)
+    assert frame.rows
+    for row in frame.rows:
+        assert row.conv is None  # conv is only set on global-result rows
+    frame.Destroy()
+    app.Destroy()
