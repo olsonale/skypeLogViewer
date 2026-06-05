@@ -314,11 +314,16 @@ class MainFrame(wx.Frame):
         self.search_ctrl.SelectAll()
 
     def on_search_text(self, event: wx.CommandEvent) -> None:
+        if self._scope_is_global():
+            return  # global search runs on Enter, not per keystroke
         if self.search_mode == "filter":
             self.rebuild_rows(self.search_ctrl.GetValue())
             self._select_row(0)
 
     def on_search_enter(self, event: wx.CommandEvent) -> None:
+        if self._scope_is_global():
+            self.run_global_search()
+            return
         if self.search_mode != "find":
             return
         query = self.search_ctrl.GetValue()

@@ -481,3 +481,25 @@ def test_run_global_search_no_matches(tmp_path):
     finally:
         frame.Destroy()
         app.Destroy()
+
+
+def test_live_typing_ignored_in_global_scope(tmp_path):
+    app = wx.App()
+    frame = _frame_global(tmp_path)
+    try:
+        frame.select_conversation(0)            # Alice, normal view
+        normal_count = frame.msg_list.GetItemCount()
+        frame.scope_box.SetSelection(1)
+        frame.on_scope_changed(None)
+        frame.search_ctrl.ChangeValue("hello")
+        frame.on_search_text(None)              # live typing
+        # global scope ignores live typing: list unchanged, still normal mode
+        assert frame.results_mode == "normal"
+        assert frame.msg_list.GetItemCount() == normal_count
+
+        frame.on_search_enter(None)             # Enter runs the global search
+        assert frame.results_mode == "global"
+        assert frame.msg_list.GetItemCount() == 2
+    finally:
+        frame.Destroy()
+        app.Destroy()
