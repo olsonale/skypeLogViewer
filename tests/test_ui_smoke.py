@@ -573,3 +573,49 @@ def test_time_jump_inert_in_global_mode(tmp_path):
     finally:
         frame.Destroy()
         app.Destroy()
+
+
+def test_selecting_conversation_exits_global_mode(tmp_path):
+    app = wx.App()
+    frame = _frame_global(tmp_path)
+    try:
+        frame.scope_box.SetSelection(1)
+        frame.on_scope_changed(None)
+        frame.search_ctrl.ChangeValue("hello")
+        frame.run_global_search()
+        assert frame.results_mode == "global"
+
+        frame.select_conversation(0)  # pick a conversation from the list
+
+        assert frame.results_mode == "normal"
+        assert frame.scope_box.GetSelection() == 0
+        assert frame.search_ctrl.GetName() == "Search this conversation"
+        assert frame.current_conv.id == "8:a"
+    finally:
+        frame.Destroy()
+        app.Destroy()
+
+
+def test_toggle_system_while_global_reruns_search(tmp_path):
+    app = wx.App()
+    frame = _frame_global(tmp_path)
+    try:
+        frame.scope_box.SetSelection(1)
+        frame.on_scope_changed(None)
+        frame.search_ctrl.ChangeValue("hello")
+        frame.run_global_search()
+        assert frame.results_mode == "global"
+        assert frame.msg_list.GetItemCount() == 2
+
+        # Toggling Show system events stays in the global results (re-runs the
+        # search) instead of dropping into a single conversation's filtered view.
+        frame.mi_show_system.Check(True)
+        frame.on_toggle_system(None)
+
+        assert frame.results_mode == "global"
+        assert frame.msg_list.GetItemCount() == 2  # no system messages contain "hello"
+        assert frame.rows[0].text.startswith("Alice — ")
+        assert frame.rows[1].text.startswith("Bob — ")
+    finally:
+        frame.Destroy()
+        app.Destroy()

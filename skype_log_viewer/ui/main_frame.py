@@ -216,6 +216,12 @@ class MainFrame(wx.Frame):
             return
         if self.conv_list.GetSelection() != index:
             self.conv_list.SetSelection(index)
+        # Selecting a conversation always shows its normal view, leaving the
+        # global results list (and its scope) if it was open.
+        if self.results_mode == "global":
+            self.scope_box.SetSelection(0)
+            self.search_ctrl.SetName("Search this conversation")
+            self.results_mode = "normal"
         self.current_conv = self._visible_convs[index]
         self.search_ctrl.ChangeValue("")
         self.rebuild_rows()
@@ -304,11 +310,9 @@ class MainFrame(wx.Frame):
         )
         if conv_index is None:
             return
-        # Reset scope to This conversation, then land on the message.
-        self.scope_box.SetSelection(0)
-        self.search_ctrl.SetName("Search this conversation")
-        self.results_mode = "normal"
-        self.select_conversation(conv_index)  # rebuilds the conversation's normal view
+        # select_conversation resets scope/name/results_mode and rebuilds the
+        # conversation's normal view; then land on the matched message.
+        self.select_conversation(conv_index)
         for i, r in enumerate(self.rows):
             if r.message and r.message.id == target_id:
                 self.msg_list.SetFocus()
@@ -425,6 +429,11 @@ class MainFrame(wx.Frame):
     # ---------- menu handlers ----------
     def on_toggle_system(self, event: wx.CommandEvent) -> None:
         self.config.show_system = self.mi_show_system.IsChecked()
+        if self.results_mode == "global":
+            # Re-run the global search so results reflect the new setting,
+            # rather than dropping into a single conversation's view.
+            self.run_global_search()
+            return
         old_index = self.msg_list.GetFirstSelected()
         old_msg_id = (
             self.rows[old_index].message.id
