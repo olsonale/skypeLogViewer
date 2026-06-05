@@ -1,4 +1,4 @@
-from skype_log_viewer.search import filter_indices, matching_indices, next_index
+from skype_log_viewer.search import filter_indices, grouped_matches, matching_indices, next_index
 
 ITEMS = ["hello world", "goodbye", "Hello again", "nothing"]
 
@@ -37,9 +37,6 @@ def test_next_index_no_matches_returns_none():
     assert next_index([], current=0, forward=True) is None
 
 
-from skype_log_viewer.search import grouped_matches
-
-
 # (group_id, items) pairs — group ids are arbitrary labels, not indices.
 GROUPS = [
     ("g0", ["hello world", "goodbye"]),
@@ -57,11 +54,11 @@ def test_grouped_matches_case_insensitive():
     assert grouped_matches(GROUPS, "HELLO") == [(0, 0), (1, 0)]
 
 
-def test_grouped_matches_empty_query_returns_none():
+def test_grouped_matches_empty_query_returns_empty():
     assert grouped_matches(GROUPS, "") == []
 
 
-def test_grouped_matches_no_matches_returns_none():
+def test_grouped_matches_no_matches_returns_empty():
     assert grouped_matches(GROUPS, "zzz") == []
 
 

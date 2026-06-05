@@ -40,7 +40,7 @@ def next_index(matches: Sequence[int], current: int, forward: bool = True) -> Op
     return matches[-1]
 
 
-def grouped_matches(groups, query: str, key: Key = _identity) -> list[tuple[int, int]]:
+def grouped_matches(groups: Sequence, query: str, key: Key = _identity) -> list[tuple[int, int]]:
     """(group_index, item_index) pairs for items containing query (case-insensitive).
 
     `groups` is a sequence of (group_id, items) pairs; the group_id is ignored
