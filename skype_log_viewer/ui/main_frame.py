@@ -304,14 +304,8 @@ class MainFrame(wx.Frame):
     def _restore_normal_view(self) -> None:
         """Leave the global results list and show the current conversation."""
         self.results_mode = "normal"
-        if self.current_conv is not None:
-            self.rebuild_rows()
-            self._select_row(0)
-        else:
-            self.rows = []
-            self.msg_list.SetItemCount(0)
-            self.msg_list.Refresh()
-            self.detail.ChangeValue("")
+        self.rebuild_rows()  # empty when current_conv is None
+        self._select_row(0)  # clears the detail when there are no rows
 
     def focus_search(self, mode: str) -> None:
         self.search_mode = mode
