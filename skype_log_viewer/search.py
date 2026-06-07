@@ -38,3 +38,22 @@ def next_index(matches: Sequence[int], current: int, forward: bool = True) -> Op
         if m < current:
             return m
     return matches[-1]
+
+
+def grouped_matches(groups: Sequence, query: str, key: Key = _identity) -> list[tuple[int, int]]:
+    """(group_index, item_index) pairs for items containing query (case-insensitive).
+
+    `groups` is a sequence of (group_id, items) pairs; the group_id is ignored
+    for indexing — the returned group index is the position in `groups`. Empty
+    query -> [] (consistent with matching_indices). Groups in input order, items
+    in input order within each group.
+    """
+    if not query:
+        return []
+    q = query.casefold()
+    pairs: list[tuple[int, int]] = []
+    for gi, (_group_id, items) in enumerate(groups):
+        for ii, it in enumerate(items):
+            if q in key(it).casefold():
+                pairs.append((gi, ii))
+    return pairs

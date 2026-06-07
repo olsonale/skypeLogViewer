@@ -179,6 +179,12 @@ def test_shortcuts_text_lists_time_jump_keys():
         assert key in SHORTCUTS_TEXT
 
 
+def test_shortcuts_text_mentions_global_search():
+    from skype_log_viewer.ui.shortcuts_dialog import SHORTCUTS_TEXT
+    assert "Search scope" in SHORTCUTS_TEXT
+    assert "All conversations" in SHORTCUTS_TEXT
+
+
 def _frame_with_multi(tmp_path):
     """Frame over one conversation spanning two Jan days, March, and Jul 2026.
 
@@ -330,3 +336,286 @@ def test_on_char_hook_ctrl_shift_arrow_does_not_jump(tmp_path):
 
     frame.Destroy()
     app.Destroy()
+
+
+def test_normal_rows_have_no_conv(tmp_path):
+    app = wx.App()
+    frame = _frame_with_multi(tmp_path)
+    assert frame.rows
+    for row in frame.rows:
+        assert row.conv is None  # conv is only set on global-result rows
+    frame.Destroy()
+    app.Destroy()
+
+
+def test_working_messages_helper_respects_show_system(tmp_path):
+    from skype_log_viewer.model import ExportData
+    from skype_log_viewer.config import Config
+    from skype_log_viewer.ui.main_frame import MainFrame
+
+    utc = datetime.timezone.utc
+    conv = Conversation("8:a", "Alice", False, 2, [
+        Message("1", "8:a", "Alice",
+                datetime.datetime(2025, 3, 19, 12, 0, tzinfo=utc),
+                "RichText", "real message", False),
+        Message("2", "8:a", "Alice",
+                datetime.datetime(2025, 3, 19, 12, 1, tzinfo=utc),
+                "ThreadActivity/AddMember", "", True),
+    ])
+    data = ExportData("8:me", [conv])
+
+    app = wx.App()
+    cfg = Config(tmp_path / "config.json")
+    frame = MainFrame(data, cfg)
+    try:
+        frame.config.show_system = False
+        assert len(frame._working_messages(conv)) == 1  # system event excluded
+        frame.config.show_system = True
+        assert len(frame._working_messages(conv)) == 2  # system event included
+    finally:
+        frame.Destroy()
+        app.Destroy()
+
+
+def test_scope_radiobox_exists_with_two_options(tmp_path):
+    app = wx.App()
+    frame = _frame_with_multi(tmp_path)
+    try:
+        assert frame.scope_box.GetCount() == 2
+        assert frame.scope_box.GetString(0) == "This conversation"
+        assert frame.scope_box.GetString(1) == "All conversations"
+        # scope box sits in the F6 pane cycle between search and messages
+        assert frame._panes.index(frame.scope_box) == \
+            frame._panes.index(frame.search_ctrl) + 1
+        assert frame._panes.index(frame.scope_box) == \
+            frame._panes.index(frame.msg_list) - 1
+    finally:
+        frame.Destroy()
+        app.Destroy()
+
+
+def test_scope_switch_flips_search_accessible_name(tmp_path):
+    app = wx.App()
+    frame = _frame_with_multi(tmp_path)
+    try:
+        frame.scope_box.SetSelection(1)
+        frame.on_scope_changed(None)
+        assert frame.search_ctrl.GetName() == "Search all conversations"
+        frame.scope_box.SetSelection(0)
+        frame.on_scope_changed(None)
+        assert frame.search_ctrl.GetName() == "Search this conversation"
+    finally:
+        frame.Destroy()
+        app.Destroy()
+
+
+def _frame_global(tmp_path):
+    """Frame over two conversations that both contain the word 'hello'."""
+    from skype_log_viewer.model import ExportData
+    from skype_log_viewer.config import Config
+    from skype_log_viewer.ui.main_frame import MainFrame
+
+    utc = datetime.timezone.utc
+
+    def msg(i, sender, text):
+        return Message(str(i), "8:x", sender,
+                       datetime.datetime(2025, 3, 19, 12, 0, tzinfo=utc),
+                       "RichText", text, False)
+
+    conv_a = Conversation("8:a", "Alice", False, 2,
+                          [msg(1, "You", "hello there"), msg(2, "Alice", "banana split")])
+    conv_b = Conversation("8:b", "Bob", False, 2,
+                          [msg(3, "You", "another hello"), msg(4, "Bob", "nothing here")])
+    data = ExportData("8:me", [conv_a, conv_b])
+    cfg = Config(tmp_path / "config.json")
+    return MainFrame(data, cfg)
+
+
+def test_run_global_search_builds_prefixed_results(tmp_path):
+    app = wx.App()
+    frame = _frame_global(tmp_path)
+    try:
+        frame.scope_box.SetSelection(1)
+        frame.on_scope_changed(None)
+        frame.search_ctrl.ChangeValue("hello")
+        frame.run_global_search()
+
+        assert frame.results_mode == "global"
+        assert frame.msg_list.GetItemCount() == 2
+        # one row per match, in conversation order, prefixed by conversation name
+        assert frame.rows[0].text.startswith("Alice — ")
+        assert frame.rows[1].text.startswith("Bob — ")
+        # each result carries its conversation for activation
+        assert frame.rows[0].conv.id == "8:a"
+        assert frame.rows[1].conv.id == "8:b"
+        # the matched messages are the right ones
+        assert frame.rows[0].message.id == "1"
+        assert frame.rows[1].message.id == "3"
+        assert "2 results in 2 conversations" in \
+            frame.GetStatusBar().GetStatusText()
+    finally:
+        frame.Destroy()
+        app.Destroy()
+
+
+def test_run_global_search_empty_query_beeps(tmp_path):
+    app = wx.App()
+    frame = _frame_global(tmp_path)
+    try:
+        frame.scope_box.SetSelection(1)
+        frame.on_scope_changed(None)
+        frame.search_ctrl.ChangeValue("   ")  # whitespace only
+        frame.run_global_search()
+        assert frame.results_mode == "normal"  # results not built
+        assert frame.msg_list.GetItemCount() == 0
+    finally:
+        frame.Destroy()
+        app.Destroy()
+
+
+def test_run_global_search_no_matches(tmp_path):
+    app = wx.App()
+    frame = _frame_global(tmp_path)
+    try:
+        frame.scope_box.SetSelection(1)
+        frame.on_scope_changed(None)
+        frame.search_ctrl.ChangeValue("zzzznope")
+        frame.run_global_search()
+        assert frame.msg_list.GetItemCount() == 0
+        assert 'No matches for "zzzznope"' in \
+            frame.GetStatusBar().GetStatusText()
+    finally:
+        frame.Destroy()
+        app.Destroy()
+
+
+def test_live_typing_ignored_in_global_scope(tmp_path):
+    app = wx.App()
+    frame = _frame_global(tmp_path)
+    try:
+        frame.select_conversation(0)            # Alice, normal view
+        normal_count = frame.msg_list.GetItemCount()
+        frame.scope_box.SetSelection(1)
+        frame.on_scope_changed(None)
+        frame.search_ctrl.ChangeValue("hello")
+        frame.on_search_text(None)              # live typing
+        # global scope ignores live typing: list unchanged, still normal mode
+        assert frame.results_mode == "normal"
+        assert frame.msg_list.GetItemCount() == normal_count
+
+        frame.on_search_enter(None)             # Enter runs the global search
+        assert frame.results_mode == "global"
+        assert frame.msg_list.GetItemCount() == 2
+    finally:
+        frame.Destroy()
+        app.Destroy()
+
+
+def test_activate_global_result_jumps_to_message(tmp_path):
+    app = wx.App()
+    frame = _frame_global(tmp_path)
+    try:
+        frame.scope_box.SetSelection(1)
+        frame.on_scope_changed(None)
+        frame.search_ctrl.ChangeValue("hello")
+        frame.run_global_search()
+
+        frame._activate_result_row(1)  # the "Bob" result (message id "3")
+
+        assert frame.results_mode == "normal"
+        assert frame.scope_box.GetSelection() == 0
+        assert frame.search_ctrl.GetName() == "Search this conversation"
+        assert frame.current_conv.id == "8:b"
+        selected = frame.msg_list.GetFirstSelected()
+        assert frame.rows[selected].message.id == "3"
+    finally:
+        frame.Destroy()
+        app.Destroy()
+
+
+def test_escape_in_global_mode_restores_normal_view(tmp_path):
+    app = wx.App()
+    frame = _frame_global(tmp_path)
+    try:
+        frame.select_conversation(0)            # Alice, normal view
+        frame.scope_box.SetSelection(1)
+        frame.on_scope_changed(None)
+        frame.search_ctrl.ChangeValue("hello")
+        frame.run_global_search()
+        assert frame.results_mode == "global"
+
+        frame.on_char_hook(_key_event(wx.WXK_ESCAPE))
+
+        assert frame.results_mode == "normal"
+        assert frame.scope_box.GetSelection() == 0
+        assert frame.search_ctrl.GetName() == "Search this conversation"
+        assert frame.current_conv.id == "8:a"     # back in Alice's conversation
+    finally:
+        frame.Destroy()
+        app.Destroy()
+
+
+def test_time_jump_inert_in_global_mode(tmp_path):
+    app = wx.App()
+    frame = _frame_global(tmp_path)
+    try:
+        frame.scope_box.SetSelection(1)
+        frame.on_scope_changed(None)
+        frame.search_ctrl.ChangeValue("hello")
+        frame.run_global_search()
+        before = frame.msg_list.GetFirstSelected()
+        frame.SetStatusText("sentinel")
+        frame._time_jump("day", 1)
+        # The guard returns early: selection unchanged AND no boundary beep/message.
+        # (Without the guard, _time_jump would set the status to "No later day".)
+        assert frame.msg_list.GetFirstSelected() == before
+        assert frame.GetStatusBar().GetStatusText() == "sentinel"
+    finally:
+        frame.Destroy()
+        app.Destroy()
+
+
+def test_selecting_conversation_exits_global_mode(tmp_path):
+    app = wx.App()
+    frame = _frame_global(tmp_path)
+    try:
+        frame.scope_box.SetSelection(1)
+        frame.on_scope_changed(None)
+        frame.search_ctrl.ChangeValue("hello")
+        frame.run_global_search()
+        assert frame.results_mode == "global"
+
+        frame.select_conversation(0)  # pick a conversation from the list
+
+        assert frame.results_mode == "normal"
+        assert frame.scope_box.GetSelection() == 0
+        assert frame.search_ctrl.GetName() == "Search this conversation"
+        assert frame.current_conv.id == "8:a"
+    finally:
+        frame.Destroy()
+        app.Destroy()
+
+
+def test_toggle_system_while_global_reruns_search(tmp_path):
+    app = wx.App()
+    frame = _frame_global(tmp_path)
+    try:
+        frame.scope_box.SetSelection(1)
+        frame.on_scope_changed(None)
+        frame.search_ctrl.ChangeValue("hello")
+        frame.run_global_search()
+        assert frame.results_mode == "global"
+        assert frame.msg_list.GetItemCount() == 2
+
+        # Toggling Show system events stays in the global results (re-runs the
+        # search) instead of dropping into a single conversation's filtered view.
+        frame.mi_show_system.Check(True)
+        frame.on_toggle_system(None)
+
+        assert frame.results_mode == "global"
+        assert frame.msg_list.GetItemCount() == 2  # no system messages contain "hello"
+        assert frame.rows[0].text.startswith("Alice — ")
+        assert frame.rows[1].text.startswith("Bob — ")
+    finally:
+        frame.Destroy()
+        app.Destroy()
