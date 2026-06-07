@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Added
+- **Search across every conversation at once.** A *Search scope* selector below
+  the search box switches between *This conversation* (the existing behavior) and
+  *All conversations*. In *All conversations*, type a term and press **Enter** to
+  get a flat list of every matching message, each labeled with its conversation
+  so your screen reader announces where the match is before what it says.
+  Pressing **Enter** on a result jumps to that message in its conversation, and
+  **Esc** returns to your conversation. The scope selector joins the F6 pane
+  cycle, and the search box announces the active scope when you land on it.
+
 ### Fixed
 - **Conversations with only system events are now hidden by default.** The
   conversation list previously counted join/leave, member-add and topic-change

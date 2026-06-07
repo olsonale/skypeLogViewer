@@ -9,7 +9,7 @@ from ..config import Config
 from ..formatting import date_label, format_row, make_preview, to_local
 from ..model import Conversation, ExportData, Message
 from ..navigation import time_jump_target
-from ..search import filter_indices, matching_indices, next_index
+from ..search import filter_indices, grouped_matches, matching_indices, next_index
 from .info_dialog import InfoDialog
 from .shortcuts_dialog import ShortcutsDialog
 
@@ -48,12 +48,19 @@ class _VirtualMessageList(wx.ListCtrl):
 class _Row:
     """A row in the message list: either a date separator or a message."""
 
-    __slots__ = ("text", "message", "date")
+    __slots__ = ("text", "message", "date", "conv")
 
-    def __init__(self, text: str, message: Optional[Message], date: datetime.date) -> None:
+    def __init__(
+        self,
+        text: str,
+        message: Optional[Message],
+        date: datetime.date,
+        conv: Optional[Conversation] = None,
+    ) -> None:
         self.text = text
         self.message = message
         self.date = date
+        self.conv = conv  # set only on global-result rows; None otherwise
 
 
 class MainFrame(wx.Frame):
@@ -64,6 +71,7 @@ class MainFrame(wx.Frame):
         self.current_conv: Optional[Conversation] = None
         self.rows: list[_Row] = []
         self.search_mode = "filter"  # or "find"
+        self.results_mode = "normal"  # or "global" (showing global search results)
 
         self._build_menu()
         self._build_layout()
@@ -142,6 +150,13 @@ class MainFrame(wx.Frame):
         self.search_ctrl.SetName("Search this conversation")
         right.Add(self.search_ctrl, 0, wx.EXPAND | wx.ALL, 4)
 
+        self.scope_box = wx.RadioBox(
+            panel, label="Search scope",
+            choices=["This conversation", "All conversations"],
+            style=wx.RA_SPECIFY_ROWS,
+        )
+        right.Add(self.scope_box, 0, wx.EXPAND | wx.ALL, 4)
+
         right.Add(wx.StaticText(panel, label="Messages"), 0, wx.ALL, 4)
         self.msg_list = _VirtualMessageList(panel, self)
         self.msg_list.InsertColumn(0, "Message")
@@ -156,13 +171,15 @@ class MainFrame(wx.Frame):
         root.Add(right, 2, wx.EXPAND)
         panel.SetSizer(root)
         self.panel = panel
-        self._panes = [self.conv_list, self.search_ctrl, self.msg_list, self.detail]
+        self._panes = [self.conv_list, self.search_ctrl, self.scope_box, self.msg_list, self.detail]
 
     def _bind_events(self) -> None:
         self.Bind(wx.EVT_LISTBOX, self.on_conversation_selected, self.conv_list)
         self.msg_list.Bind(wx.EVT_LIST_ITEM_SELECTED, self.on_message_selected)
+        self.msg_list.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.on_message_activated)
         self.search_ctrl.Bind(wx.EVT_TEXT, self.on_search_text)
         self.search_ctrl.Bind(wx.EVT_TEXT_ENTER, self.on_search_enter)
+        self.scope_box.Bind(wx.EVT_RADIOBOX, self.on_scope_changed)
 
         self.Bind(wx.EVT_MENU, self.on_open, id=wx.ID_OPEN)
         self.Bind(wx.EVT_MENU, lambda e: self.Close(), id=wx.ID_EXIT)
@@ -199,6 +216,12 @@ class MainFrame(wx.Frame):
             return
         if self.conv_list.GetSelection() != index:
             self.conv_list.SetSelection(index)
+        # Selecting a conversation always shows its normal view, leaving the
+        # global results list (and its scope) if it was open.
+        if self.results_mode == "global":
+            self.scope_box.SetSelection(0)
+            self.search_ctrl.SetName("Search this conversation")
+            self.results_mode = "normal"
         self.current_conv = self._visible_convs[index]
         self.search_ctrl.ChangeValue("")
         self.rebuild_rows()
@@ -212,12 +235,16 @@ class MainFrame(wx.Frame):
         )
 
     # ---------- message rows ----------
+    def _working_messages(self, conv: Conversation) -> list[Message]:
+        """Messages of `conv` filtered by the Show system events setting."""
+        if self.config.show_system:
+            return list(conv.messages)
+        return [m for m in conv.messages if not m.is_system]
+
     def working_messages(self) -> list[Message]:
         if not self.current_conv:
             return []
-        if self.config.show_system:
-            return list(self.current_conv.messages)
-        return [m for m in self.current_conv.messages if not m.is_system]
+        return self._working_messages(self.current_conv)
 
     def rebuild_rows(self, filter_query: str = "") -> None:
         messages = self.working_messages()
@@ -259,25 +286,88 @@ class MainFrame(wx.Frame):
     def on_message_selected(self, event: wx.ListEvent) -> None:
         self._update_detail(event.GetIndex())
 
+    def on_message_activated(self, event: wx.ListEvent) -> None:
+        self._activate_result_row(event.GetIndex())
+
+    def _activate_result_row(self, index: int) -> None:
+        """Jump from a global-result row to that message in its conversation.
+
+        The target row is found because global search and the normal rebuild both
+        filter via _working_messages/working_messages, so any matched message is
+        also present in the rebuilt normal view.
+        """
+        if self.results_mode != "global":
+            return
+        if not (0 <= index < len(self.rows)):
+            return
+        row = self.rows[index]
+        if row.conv is None or row.message is None:
+            return
+        target_id = row.message.id
+        conv_index = next(
+            (i for i, c in enumerate(self._visible_convs) if c.id == row.conv.id),
+            None,
+        )
+        if conv_index is None:
+            return
+        # select_conversation resets scope/name/results_mode and rebuilds the
+        # conversation's normal view; then land on the matched message.
+        self.select_conversation(conv_index)
+        for i, r in enumerate(self.rows):
+            if r.message and r.message.id == target_id:
+                self.msg_list.SetFocus()
+                self._select_row(i)
+                return
+        # Defensive: if filtering rules ever diverge and the message isn't in the
+        # rebuilt view, tell the user instead of silently landing on another row.
+        wx.Bell()
+        self.SetStatusText("Message no longer available")
+
     def _update_detail(self, row_index: int) -> None:
         if 0 <= row_index < len(self.rows):
             row = self.rows[row_index]
             self.detail.ChangeValue(row.message.clean_text if row.message else row.text)
-            if self.current_conv and row.message is not None:
+            if (self.results_mode == "normal" and self.current_conv
+                    and row.message is not None):
                 self.config.set_position(self.current_conv.id, row_index)
 
     # ---------- search ----------
+    def _scope_is_global(self) -> bool:
+        return self.scope_box.GetSelection() == 1
+
+    def on_scope_changed(self, event: wx.CommandEvent) -> None:
+        if self._scope_is_global():
+            # Don't search yet — global search runs on Enter, not per keystroke.
+            self.search_ctrl.SetName("Search all conversations")
+            self.search_ctrl.SetFocus()
+            self.search_ctrl.SelectAll()
+        else:
+            self.search_ctrl.SetName("Search this conversation")
+            if self.results_mode == "global":
+                self._restore_normal_view()
+
+    def _restore_normal_view(self) -> None:
+        """Leave the global results list and show the current conversation."""
+        self.results_mode = "normal"
+        self.rebuild_rows()  # empty when current_conv is None
+        self._select_row(0)  # clears the detail when there are no rows
+
     def focus_search(self, mode: str) -> None:
         self.search_mode = mode
         self.search_ctrl.SetFocus()
         self.search_ctrl.SelectAll()
 
     def on_search_text(self, event: wx.CommandEvent) -> None:
+        if self._scope_is_global():
+            return  # global search runs on Enter, not per keystroke
         if self.search_mode == "filter":
             self.rebuild_rows(self.search_ctrl.GetValue())
             self._select_row(0)
 
     def on_search_enter(self, event: wx.CommandEvent) -> None:
+        if self._scope_is_global():
+            self.run_global_search()
+            return
         if self.search_mode != "find":
             return
         query = self.search_ctrl.GetValue()
@@ -298,9 +388,52 @@ class MainFrame(wx.Frame):
             position = row_matches.index(target) + 1
             self.SetStatusText(f"Match {position} of {len(row_matches)}")
 
+    def run_global_search(self) -> None:
+        query = self.search_ctrl.GetValue().strip()
+        if not query:
+            wx.Bell()
+            self.SetStatusText("Type a search term, then press Enter")
+            return
+
+        convs = self.visible_conversations()
+        groups = [(c.id, self._working_messages(c)) for c in convs]
+        pairs = grouped_matches(groups, query, key=lambda m: m.clean_text)
+
+        if not pairs:
+            self.results_mode = "global"
+            self.rows = []
+            self.msg_list.SetItemCount(0)
+            self.msg_list.Refresh()
+            self.detail.ChangeValue("")
+            self.SetStatusText(f'No matches for "{query}"')
+            return
+
+        rows: list[_Row] = []
+        for gi, ii in pairs:
+            conv = convs[gi]
+            message = groups[gi][1][ii]
+            local = to_local(message.timestamp)
+            preview = make_preview(message.clean_text)
+            text = f"{conv.display_name} — " + format_row(message.sender_name, local, preview)
+            rows.append(_Row(text, message, local.date(), conv=conv))
+
+        self.rows = rows
+        self.results_mode = "global"
+        self.msg_list.SetItemCount(len(rows))
+        self.msg_list.Refresh()
+        self.msg_list.SetFocus()
+        self._select_row(0)
+        conv_count = len({r.conv.id for r in rows})
+        self.SetStatusText(f"{len(rows)} results in {conv_count} conversations")
+
     # ---------- menu handlers ----------
     def on_toggle_system(self, event: wx.CommandEvent) -> None:
         self.config.show_system = self.mi_show_system.IsChecked()
+        if self.results_mode == "global":
+            # Re-run the global search so results reflect the new setting,
+            # rather than dropping into a single conversation's view.
+            self.run_global_search()
+            return
         old_index = self.msg_list.GetFirstSelected()
         old_msg_id = (
             self.rows[old_index].message.id
@@ -320,6 +453,9 @@ class MainFrame(wx.Frame):
         self.rebuild_conversation_list()
 
     def on_info(self, event: wx.CommandEvent) -> None:
+        if self.results_mode == "global":
+            wx.Bell()  # no single active conversation in the results view
+            return
         if self.current_conv:
             dlg = InfoDialog(self, self.current_conv)
             dlg.ShowModal()
@@ -374,6 +510,12 @@ class MainFrame(wx.Frame):
         if key == wx.WXK_F6:
             self._cycle_pane(forward=not event.ShiftDown())
             return
+        if key == wx.WXK_ESCAPE and self.results_mode == "global":
+            self.scope_box.SetSelection(0)
+            self.search_ctrl.SetName("Search this conversation")
+            self.search_ctrl.ChangeValue("")
+            self._restore_normal_view()
+            return
         if key == wx.WXK_ESCAPE and self.search_ctrl.GetValue():
             self.search_ctrl.ChangeValue("")
             self.rebuild_rows("")
@@ -410,6 +552,8 @@ class MainFrame(wx.Frame):
         self._panes[(idx + step) % len(self._panes)].SetFocus()
 
     def _time_jump(self, unit: str, direction: int) -> None:
+        if self.results_mode == "global":
+            return  # global results have no date separators to target
         if not self.rows:
             return
         meta = [(row.date, row.message is None) for row in self.rows]
