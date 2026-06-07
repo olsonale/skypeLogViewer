@@ -9,3 +9,6 @@ dist-nuitka/
 *.dist/
 *.onefile-build/
 *.spec
+
+# macOS
+.DS_Store
